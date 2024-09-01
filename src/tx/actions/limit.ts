@@ -8,11 +8,12 @@ import {
   validatorToRewardAddress,
 } from "@lucid-evolution/lucid";
 import { scope, type } from "arktype";
-import blake2 from "blake2";
 import Decimal from "decimal.js";
 import { Err, isProblem, mayFail, Ok } from "ts-handling";
-import { ReferenceUTxO } from "../../cardano/reference.js";
+import { ReferenceUTxO } from "../../cardano";
 import { OneWaySwapDatum } from "../datums";
+import { Extension, NullExtension } from "../extensions";
+import { hash } from "../hash.js";
 
 const DecimalType = type("string|number").pipe((v, ctx) => {
   const value = mayFail(() => new Decimal(v)).unwrap();
@@ -50,6 +51,7 @@ const createLimitOrder = async (
   beaconReferenceScript: ReferenceUTxO,
   policyReferenceScript: ReferenceUTxO,
   $tx?: TxBuilder,
+  $extension: Extension = NullExtension,
   $reward?: RewardAddress
 ) => {
   const amount = Amount($amount);
@@ -68,13 +70,18 @@ const createLimitOrder = async (
   const policyId = mintingPolicyToId(policyScript);
   const beacon = getBeacon(offer, ask, policyId);
 
+  const extension = $extension.get();
+  if (!extension.ok) return Err(`extension ${extension.error}`);
   const datum = OneWaySwapDatum(
     beacon.pair,
     offer,
     beacon.offer,
     ask,
     beacon.ask,
-    [price, 1000000]
+    [price, 1000000],
+    0,
+    extension.data[0],
+    extension.data[1]
   ).unwrap();
   if (isProblem(datum)) return Err(datum.error);
 
@@ -113,12 +120,6 @@ const getBeacon = (token1: string, token2: string, policy: string) => {
 
 const getName = (name: string, v: string = "00") =>
   !!name && name !== "lovelace" ? name : v;
-
-const hash = (value: string) =>
-  blake2
-    .createHash("blake2b", { digestLength: 32 })
-    .update(Buffer.from(value, "hex"))
-    .digest("hex");
 
 export default createLimitOrder;
 export type { Amount };

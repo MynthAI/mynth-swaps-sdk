@@ -23,7 +23,7 @@
     "test": "npx ava"
   },
   "dependencies": {
-    "@lucid-evolution/lucid": "^0.3.15",
+    "@lucid-evolution/lucid": "^0.3.19",
     "arktype": "^2.0.0-rc.0",
     "blake2": "^5.0.0",
     "cardano-ts": "^0.3.0",

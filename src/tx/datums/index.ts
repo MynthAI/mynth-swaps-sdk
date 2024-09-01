@@ -1,3 +1,9 @@
-import OneWaySwapDatum from "./oneway.js";
+import OneWaySwapDatum, {
+  fromDatum as fromOneSwapSwapDatum,
+} from "./oneway.js";
 
-export { OneWaySwapDatum };
+const from = {
+  oneWaySwap: fromOneSwapSwapDatum,
+};
+
+export { from, OneWaySwapDatum };

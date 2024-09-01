@@ -1,4 +1,4 @@
-import loadLucid from "./lucid.js";
+import loadLucid, { Address } from "./lucid.js";
 
 export * from "./reference.js";
-export { loadLucid };
+export { Address, loadLucid };

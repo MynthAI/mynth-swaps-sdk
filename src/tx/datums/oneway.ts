@@ -1,13 +1,12 @@
-import {
-  Constr,
-  Data,
-  Datum,
-  fromText,
-  getAddressDetails,
-} from "@lucid-evolution/lucid";
+import { Constr, Data, Datum, fromText } from "@lucid-evolution/lucid";
 import { type } from "arktype";
-import { isProblem, mayFail, Ok, Result } from "ts-handling";
-import { validate, validateAll } from "../../validation";
+import { Err, isProblem, mayFail, Ok, Result } from "ts-handling";
+import {
+  OptionalHash,
+  RewardAddress,
+  validate,
+  validateAll,
+} from "../../validation";
 import Rational from "./rational.js";
 
 const DateType = type("string|number>=0").pipe((v, ctx) => {
@@ -58,22 +57,33 @@ const AssetName = type("string").pipe((v, ctx) => {
 });
 type AssetName = typeof AssetName.in.infer;
 
-const RewardAddress = type("string").pipe((v, ctx) => {
-  const details = mayFail(() => getAddressDetails(v)).unwrap();
-  if (isProblem(details)) return ctx.error("valid reward address");
-  if (!details.stakeCredential)
-    return ctx.error("valid address with stake credential");
-
-  return details.stakeCredential.hash;
-});
 const OptionalRewardAddress = type("string").pipe((v) =>
   v === "" ? "" : RewardAddress(v)
 );
 type OptionalRewardAddress = typeof OptionalRewardAddress.in.infer;
 
-const Hash = type(/^[0-9A-Fa-f]{64}$/).pipe((v) => v.toLowerCase());
-const OptionalHash = type("string").pipe((v) => (v === "" ? "" : Hash(v)));
-type OptionalHash = typeof OptionalHash.in.infer;
+const Schema = type({
+  index: "0",
+  fields: [
+    "bigint",
+    "string",
+    "string",
+    "string",
+    "string",
+    "string",
+    "string",
+    "string",
+    {
+      index: "0",
+      fields: ["bigint", "bigint"],
+    },
+    "string",
+    "string",
+  ],
+});
+type Schema = typeof Schema.infer;
+
+type ParamsType<T> = T extends (...args: infer P) => unknown ? P : never;
 
 const OneWaySwapDatum = (
   $pairBeacon: AssetName,
@@ -111,23 +121,66 @@ const OneWaySwapDatum = (
     extensionParams,
   ] = validations.data;
 
-  return Ok(
-    Data.to(
-      new Constr(0, [
-        lockedUntil,
-        pairBeacon,
-        offer.policy,
-        offer.name,
-        offerBeacon,
-        ask.policy,
-        ask.name,
-        askBeacon,
-        new Constr(0, [...swapPrice]),
-        extension,
-        extensionParams,
-      ])
-    )
+  const schema = new Constr(0, [
+    lockedUntil,
+    pairBeacon,
+    offer.policy,
+    offer.name,
+    offerBeacon,
+    ask.policy,
+    ask.name,
+    askBeacon,
+    new Constr(0, [...swapPrice]),
+    extension,
+    extensionParams,
+  ]);
+  Schema.assert(schema);
+
+  return Ok(Data.to(schema));
+};
+
+const fromDatum = (datum: string) => {
+  const parsed = mayFail(() => Data.from(datum)).unwrap();
+  if (isProblem(parsed)) return Err(parsed.error);
+
+  const schema = Schema(parsed);
+  if (schema instanceof type.errors) return Err(schema.summary);
+
+  const [
+    $lockedUntil,
+    pairBeacon,
+    offerPolicy,
+    offerName,
+    offerBeacon,
+    askPolicy,
+    askName,
+    askBeacon,
+    { fields: swapPrice },
+    extension,
+    extensionParams,
+  ] = schema.fields;
+  const lockedUntil = Number($lockedUntil);
+  const offer = offerPolicy + offerName;
+  const ask = askPolicy + askName;
+
+  const properties = {
+    pairBeacon,
+    offer,
+    offerBeacon,
+    ask,
+    askBeacon,
+    swapPrice,
+    lockedUntil,
+    extension,
+    extensionParams,
+  } as const;
+  const validated = OneWaySwapDatum(
+    ...(Object.values(properties) as ParamsType<typeof OneWaySwapDatum>)
   );
+  if (validated instanceof type.errors) return Err(validated.summary);
+
+  return Ok(properties);
 };
 
 export default OneWaySwapDatum;
+export { fromDatum };
