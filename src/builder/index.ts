@@ -1,3 +1,4 @@
 import Builder from "./builder.js";
+import Forwarder from "./forwarder.js";
 
-export { Builder };
+export { Builder, Forwarder };

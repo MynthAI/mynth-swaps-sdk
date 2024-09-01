@@ -3,18 +3,29 @@ import {
   TransactionError,
   TxBuilder,
   TxSignBuilder,
+  UTxO,
 } from "@lucid-evolution/lucid";
 import { Either } from "effect";
 import { Err, isProblem, Ok, Result } from "ts-handling";
 import { findReference, ReferenceUTxO } from "../cardano";
 import loadConfig from "../config.js";
 import { loadBlockfrost } from "../providers";
-import { createLimitOrder } from "../tx/actions";
+import { Extension, NullExtension } from "../tx";
+import { cancelLimitOrder, createLimitOrder, fillOrder } from "../tx/actions";
 import { Amount } from "../tx/actions/limit.js";
 import HookedLucid from "./hooks.js";
 
+type BuildTx = (
+  lucid: LucidEvolution,
+  tx: TxBuilder,
+  beacon: ReferenceUTxO,
+  policy: ReferenceUTxO,
+  swap: ReferenceUTxO
+) => Promise<Result<TxBuilder, string>>;
+
 class Builder {
   private hooks: HookedLucid;
+  private references: UTxO[] = [];
   private tx: TxBuilder;
 
   private constructor(
@@ -36,7 +47,8 @@ class Builder {
     amount: Amount,
     offer: string,
     ask: string,
-    price: Amount
+    price: Amount,
+    extension: Extension = NullExtension
   ): Promise<Result<this, string>> {
     const tx = await createLimitOrder(
       this.lucid,
@@ -47,7 +59,46 @@ class Builder {
       this.swap,
       this.beacon,
       this.policy,
+      this.tx,
+      extension
+    );
+    if (!tx.ok) return tx;
+    return Ok(this);
+  }
+
+  async cancel(order: UTxO): Promise<Result<this, string>> {
+    const tx = await cancelLimitOrder(
+      this.lucid,
+      order,
+      this.swap,
+      this.beacon,
+      this.policy,
       this.tx
+    );
+    if (!tx.ok) return tx;
+    return Ok(this);
+  }
+
+  async fill(order: UTxO): Promise<Result<this, string>> {
+    const tx = await fillOrder(
+      this.lucid,
+      order,
+      this.swap,
+      this.beacon,
+      this.policy,
+      this.tx
+    );
+    if (!tx.ok) return tx;
+    return Ok(this);
+  }
+
+  async run(builder: BuildTx) {
+    const tx = await builder(
+      this.lucid,
+      this.tx,
+      this.beacon,
+      this.policy,
+      this.swap
     );
     if (!tx.ok) return tx;
     return Ok(this);
@@ -58,10 +109,15 @@ class Builder {
     const result = await this.tx.chainSafe();
     if (Either.isLeft(result)) return Err(result.left);
 
-    const [utxos, , tx] = result.right;
+    const [utxos, references, tx] = result.right;
     this.lucid.overrideUTxOs(utxos);
     this.resetTx();
+    this.references = references;
     return Ok(tx);
+  }
+
+  getReferences() {
+    return [...this.references];
   }
 
   static async create(lucid: LucidEvolution) {
@@ -88,3 +144,4 @@ class Builder {
 }
 
 export default Builder;
+export { BuildTx };

@@ -85,3 +85,4 @@ const setValidity = (now: number, tx: TxBuilder) =>
   tx.validFrom(now - buffer).validTo(now + expiresIn);
 
 export default loadLucid;
+export { Address };

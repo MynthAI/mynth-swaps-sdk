@@ -29,7 +29,7 @@ const ForwarderExtensionRedeemer = (
   if (destination instanceof type.errors)
     return Err(`destination ${destination.summary}`);
 
-  return Ok(Data.to(new Constr(0, [destination.payment, destination.stake])));
+  return Ok(Data.to([new Constr(0, [destination.payment, destination.stake])]));
 };
 
 export default ForwarderExtensionRedeemer;
