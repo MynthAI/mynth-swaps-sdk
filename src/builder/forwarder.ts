@@ -17,6 +17,10 @@ class Forwarder {
     private readonly reference: ReferenceUTxO
   ) {}
 
+  getReference() {
+    return { ...this.reference };
+  }
+
   static async create(
     lucid: LucidEvolution,
     destination?: Address

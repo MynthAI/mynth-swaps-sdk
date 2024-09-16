@@ -4,7 +4,7 @@ import test from "ava";
 import { from, OneWaySwapDatum } from "mynth-swaps-sdk";
 
 test("OneWaySwapDatum is valid", (t) => {
-  const datum = OneWaySwapDatum("", "", "", "", "", [1, 2]).assert();
+  const datum = OneWaySwapDatum("", "", "", "", "", [1, 2], 0).assert();
   type({ index: "0", fields: type("string|bigint|object").array() }).assert(
     Data.from(datum)
   );
@@ -13,7 +13,7 @@ test("OneWaySwapDatum is valid", (t) => {
 
 test("can parse OneWaySwapDatum", (t) => {
   from
-    .oneWaySwap(OneWaySwapDatum("", "", "", "", "", [1, 2]).assert())
+    .oneWaySwap(OneWaySwapDatum("", "", "", "", "", [1, 2], 0).assert())
     .assert();
   t.pass();
 });

@@ -1,4 +1,4 @@
-import { Transaction } from "@dcspark/cardano-multiplatform-lib-nodejs";
+import { Transaction } from "@anastasia-labs/cardano-multiplatform-lib-nodejs";
 import test from "ava";
 import PowerOfAttorney from "builder/power-of-attorney";
 import { Builder, loadLucid } from "mynth-swaps-sdk";
