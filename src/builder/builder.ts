@@ -1,9 +1,12 @@
+import { ScriptHash } from "@anastasia-labs/cardano-multiplatform-lib-nodejs";
 import {
   LucidEvolution,
+  paymentCredentialOf,
   TransactionError,
   TxBuilder,
   TxSignBuilder,
   UTxO,
+  validatorToAddress,
 } from "@lucid-evolution/lucid";
 import { Either } from "effect";
 import { Err, isProblem, Ok, Result } from "ts-handling";
@@ -11,7 +14,14 @@ import { findReference, ReferenceUTxO } from "../cardano";
 import loadConfig from "../config.js";
 import { loadBlockfrost } from "../providers";
 import { Extension, NullExtension } from "../tx";
-import { cancelLimitOrder, createLimitOrder, fillOrder } from "../tx/actions";
+import {
+  attachMetadata,
+  cancelLimitOrder,
+  createLimitOrder,
+  fillOrder,
+  Label,
+  Metadata,
+} from "../tx/actions";
 import { Amount } from "../tx/actions/limit.js";
 import HookedLucid from "./hooks.js";
 
@@ -32,10 +42,29 @@ class Builder {
     private readonly lucid: LucidEvolution,
     private readonly beacon: ReferenceUTxO,
     private readonly policy: ReferenceUTxO,
-    private readonly swap: ReferenceUTxO
+    private readonly swap: ReferenceUTxO,
+    public readonly swapPaymentKey: string
   ) {
     this.hooks = new HookedLucid(lucid);
     this.tx = this.hooks.tx;
+  }
+
+  clone(lucid: LucidEvolution) {
+    return new Builder(
+      lucid,
+      this.beacon,
+      this.policy,
+      this.swap,
+      this.swapPaymentKey
+    );
+  }
+
+  getReferenceUtxos() {
+    return {
+      beacon: { ...this.beacon },
+      policy: { ...this.policy },
+      swap: { ...this.swap },
+    };
   }
 
   private resetTx() {
@@ -48,8 +77,39 @@ class Builder {
     offer: string,
     ask: string,
     price: Amount,
-    extension: Extension = NullExtension
+    extension?: Extension,
+    lockedUntil?: number
+  ): Promise<Result<this, string>>;
+  async limit(
+    amount: Amount,
+    offer: string,
+    ask: string,
+    price: Amount,
+    extension: Extension
+  ): Promise<Result<this, string>>;
+  async limit(
+    amount: Amount,
+    offer: string,
+    ask: string,
+    price: Amount,
+    lockedUntil: number
+  ): Promise<Result<this, string>>;
+  async limit(
+    amount: Amount,
+    offer: string,
+    ask: string,
+    price: Amount,
+    extensionOrLockedUntil: number | Extension = NullExtension,
+    $lockedUntil: number = 0
   ): Promise<Result<this, string>> {
+    const lockedUntil =
+      typeof extensionOrLockedUntil === "number"
+        ? extensionOrLockedUntil
+        : $lockedUntil;
+    const extension =
+      extensionOrLockedUntil instanceof Extension
+        ? extensionOrLockedUntil
+        : NullExtension;
     const tx = await createLimitOrder(
       this.lucid,
       amount,
@@ -60,7 +120,8 @@ class Builder {
       this.beacon,
       this.policy,
       this.tx,
-      extension
+      extension,
+      lockedUntil
     );
     if (!tx.ok) return tx;
     return Ok(this);
@@ -88,6 +149,12 @@ class Builder {
       this.policy,
       this.tx
     );
+    if (!tx.ok) return tx;
+    return Ok(this);
+  }
+
+  addMetadata(label: Label, metadata: Metadata): Result<this, string> {
+    const tx = attachMetadata(this.tx, label, metadata);
     if (!tx.ok) return tx;
     return Ok(this);
   }
@@ -139,7 +206,12 @@ class Builder {
     if (isProblem(policy)) return Err(policy.error);
     if (isProblem(swap)) return Err(swap.error);
 
-    return Ok(new Builder(lucid, beacon, policy, swap));
+    const key = ScriptHash.from_hex(
+      paymentCredentialOf(
+        validatorToAddress(lucid.config().network, swap.scriptRef)
+      ).hash
+    ).to_bech32("addr_vkh");
+    return Ok(new Builder(lucid, beacon, policy, swap, key));
   }
 }
 

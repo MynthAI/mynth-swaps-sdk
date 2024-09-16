@@ -5,7 +5,7 @@ import {
   UTxO,
   validatorToRewardAddress,
 } from "@lucid-evolution/lucid";
-import Decimal from "decimal.js";
+import { Decimal } from "decimal.js";
 import { Err, isProblem, Ok } from "ts-handling";
 import { ReferenceUTxO } from "../../cardano";
 import { from, Swap } from "../../tx";
@@ -32,14 +32,18 @@ const fillOrder = async (
   );
 
   const [numerator, denominator] = toDecimals(datum.swapPrice);
+  const offerToken = datum.offer || "lovelace";
+  const askToken = datum.ask || "lovelace";
+
   const cost = BigInt(
     numerator
-      .mul(order.assets[datum.offer].toString())
+      .mul(order.assets[offerToken].toString())
       .div(denominator)
       .toDecimalPlaces(0, Decimal.ROUND_UP)
       .toFixed(0)
   );
-  assets[datum.ask] = (assets[datum.ask] || 0n) + cost;
+
+  assets[askToken] = (assets[askToken] || 0n) + cost;
 
   const tx = $tx || lucid.newTx();
   return Ok(

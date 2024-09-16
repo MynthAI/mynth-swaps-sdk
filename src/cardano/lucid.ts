@@ -1,5 +1,6 @@
 import {
   Blockfrost,
+  generateSeedPhrase,
   getAddressDetails,
   Lucid,
   LucidEvolution,
@@ -18,6 +19,7 @@ type Network = typeof Network.infer;
 const BlockfrostNetwork = type("string>7")
   .pipe((s) => capitalize(s.substring(0, 7)))
   .pipe((s) => Network(s));
+type BlockfrostNetwork = typeof BlockfrostNetwork.in.infer;
 
 const Address = (network: Network) =>
   type("string").narrow((s, ctx) => {
@@ -41,7 +43,28 @@ const Seed = type("string").narrow(
 );
 type Seed = typeof Seed.in.infer;
 
-const loadLucid = async (
+function loadLucid(
+  blockfrostApiKey: BlockfrostNetwork
+): Promise<Result<LucidEvolution, string>>;
+function loadLucid(
+  wallet: Address | Seed
+): Promise<Result<LucidEvolution, string>>;
+function loadLucid(
+  wallet: Address | Seed,
+  blockfrostApiKey: BlockfrostNetwork
+): Promise<Result<LucidEvolution, string>>;
+async function loadLucid(
+  walletOrKey: string,
+  key?: string
+): Promise<Result<LucidEvolution, string>> {
+  const network = BlockfrostNetwork(walletOrKey);
+  if (!(network instanceof type.errors))
+    return $loadLucid(generateSeedPhrase(), walletOrKey);
+
+  return $loadLucid(walletOrKey, key);
+}
+
+const $loadLucid = async (
   wallet: Address | Seed,
   blockfrostApiKey?: string
 ): Promise<Result<LucidEvolution, string>> => {

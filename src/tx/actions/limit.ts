@@ -8,19 +8,24 @@ import {
   validatorToRewardAddress,
 } from "@lucid-evolution/lucid";
 import { scope, type } from "arktype";
-import Decimal from "decimal.js";
+import { Decimal } from "decimal.js";
 import { Err, isProblem, mayFail, Ok } from "ts-handling";
 import { ReferenceUTxO } from "../../cardano";
 import { OneWaySwapDatum } from "../datums";
 import { Extension, NullExtension } from "../extensions";
 import { hash } from "../hash.js";
 
-const DecimalType = type("string|number").pipe((v, ctx) => {
-  const value = mayFail(() => new Decimal(v)).unwrap();
-  return isProblem(value)
-    ? ctx.error("valid decimal")
-    : BigInt(value.mul(10 ** 6).toFixed(0));
-});
+const DecimalType = scope({
+  Decimal: type("instanceof", Decimal),
+  DecimalType: "string|number|Decimal",
+})
+  .export()
+  .DecimalType.pipe((v, ctx) => {
+    const value = mayFail(() => new Decimal(v)).unwrap();
+    return isProblem(value)
+      ? ctx.error("valid decimal")
+      : BigInt(value.mul(10 ** 6).toFixed(0));
+  });
 
 const Amount = scope({
   DecimalType,
@@ -52,6 +57,7 @@ const createLimitOrder = async (
   policyReferenceScript: ReferenceUTxO,
   $tx?: TxBuilder,
   $extension: Extension = NullExtension,
+  lockedUntil: number = 0,
   $reward?: RewardAddress
 ) => {
   const amount = Amount($amount);
@@ -79,7 +85,7 @@ const createLimitOrder = async (
     ask,
     beacon.ask,
     [price, 1000000],
-    0,
+    lockedUntil,
     extension.data[0],
     extension.data[1]
   ).unwrap();

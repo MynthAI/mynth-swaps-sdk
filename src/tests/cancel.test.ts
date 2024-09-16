@@ -1,4 +1,4 @@
-import { Transaction } from "@dcspark/cardano-multiplatform-lib-nodejs";
+import { Transaction } from "@anastasia-labs/cardano-multiplatform-lib-nodejs";
 import test from "ava";
 import { Builder, loadLucid } from "mynth-swaps-sdk";
 import { address, tokens } from "./wallet";

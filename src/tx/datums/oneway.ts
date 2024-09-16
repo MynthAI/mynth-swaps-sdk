@@ -92,7 +92,7 @@ const OneWaySwapDatum = (
   $ask: Token,
   $askBeacon: AssetName,
   $swapPrice: Rational,
-  $lockedUntil: DateType = 0,
+  $lockedUntil: DateType,
   $extension: OptionalRewardAddress = "",
   $extensionParams: OptionalHash = ""
 ): Result<Datum, string> => {
