@@ -16,7 +16,7 @@ To use this project, ensure you have the following installed:
 
 ## Installation
 
-To install and set up the Cardano Wallet CLI project, follow these
+To install and set up the Mynth Swaps project, follow these
 steps:
 
 1.  **Clone the repository:**
